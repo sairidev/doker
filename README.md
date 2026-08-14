@@ -68,4 +68,4 @@ Proyek ini dilisensikan di bawah [MIT License](LICENSE).
 ## Author
 
 **SairiDev**
-Email: sairidev@gmail.com
+Email: sairidev@gmail.com 
