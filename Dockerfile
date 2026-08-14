@@ -50,7 +50,7 @@ RUN mkdir -p --mode=0755 /usr/share/keyrings \
     && apt-get install -y --no-install-recommends temurin-${JAVA_VERSION}-jdk \
     && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y --no-install-recommends \
         fonts-liberation fonts-noto-color-emoji libfontconfig1 libfreetype6 \
         libasound2 libgbm1 libgtk-3-0 libnss3 libnspr4 libatk1.0-0 \
         libatk-bridge2.0-0 libcups2 libdrm2 libdbus-1-3 libexpat1 \
