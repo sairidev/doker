@@ -95,4 +95,4 @@ echo -e "${MAGENTA}MySQL Client${RESET} : $(mysql --version 2>/dev/null | awk '{
 echo -e "$LINE"
 echo -e "${PINK}${BOLD}Silahkan masukan perintah.${RESET}"
 
-exec /bin/bash
+exec "$@"
