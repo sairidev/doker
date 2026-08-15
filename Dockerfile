@@ -78,7 +78,7 @@ RUN mkdir -p $PLAYWRIGHT_BROWSERS_PATH \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && npm install -g playwright \
-    && npx playwright install chromium \
+    && npm install -g playwright@1.47.0 \
     && apt-get purge -y nodejs && apt-get autoremove -y \
     && chmod -R 777 $PLAYWRIGHT_BROWSERS_PATH
 
