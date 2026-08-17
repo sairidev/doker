@@ -71,12 +71,21 @@ DISK_USED=$(df -h / | awk 'NR==2 {print $3}')
 DISK_TOTAL=$(df -h / | awk 'NR==2 {print $2}')
 DISK_PERCENT=$(df -h / | awk 'NR==2 {print $5}' | tr -d '%')
 
+# --- IP Address (dengan opsi tampil/sembunyi) ---
+PUBLIC_IP=$(curl -s ipinfo.io/ip 2>/dev/null || echo "Unknown")
+if [[ "${SHOW_IP}" == "true" ]] || [[ "${SHOW_IP}" == "1" ]]; then
+    IP_DISPLAY="$PUBLIC_IP"
+else
+    IP_DISPLAY=$(echo -n "$PUBLIC_IP" | sed 's/./•/g')
+fi
+
 clear
 echo -e "${GREEN}${BOLD}"
 figlet -f standard SAIRI 2>/dev/null || echo "SAIRI"
 echo -e "${RESET}"
 echo -e "$LINE"
 echo -e "${CYAN}Location${RESET}   : $(curl -s ipinfo.io/country 2>/dev/null || echo 'Unknown')"
+echo -e "${CYAN}IP Address${RESET} : ${IP_DISPLAY}"
 echo -e "${CYAN}OS${RESET}         : $(grep -oP '(?<=^PRETTY_NAME=).+' /etc/os-release | tr -d '\"')"
 echo -e "${CYAN}CPU${RESET}        : $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^ //') ($(( $(grep -c ^processor /proc/cpuinfo) )) Cores)"
 echo -e "${CYAN}Uptime${RESET}     : $(uptime -p | sed 's/up //')"
@@ -95,4 +104,4 @@ echo -e "${MAGENTA}MySQL Client${RESET} : $(mysql --version 2>/dev/null | awk '{
 echo -e "$LINE"
 echo -e "${PINK}${BOLD}Silahkan masukan perintah.${RESET}"
 
-exec "$@"
+exec /bin/bash
