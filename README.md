@@ -25,8 +25,7 @@ Docker image serbaguna berbasis `debian:bullseye-slim` yang sudah dilengkapi ban
 | `NODE_VERSION` | Versi Node.js yang ingin diinstall/diaktifkan saat container start | `20`, `v20.11.0` |
 | `ENABLE_CF_TUNNEL` | Set `true`/`1` untuk mengaktifkan Cloudflare Tunnel otomatis | `true` |
 | `CF_TOKEN` | Token tunnel Cloudflare (wajib jika `ENABLE_CF_TUNNEL` aktif) | `xxxxxxxx` |
-| `ENABLE_PHP_WEB` | Set `true`/`1` untuk menyalakan nginx + php-fpm otomatis saat start | `true` |
-| `SERVER_PORT` | Port yang dipakai nginx buat serve web (biasanya auto-inject dari panel Pterodactyl/Pelican) | `8080` |
+| `SERVER_PORT` | Port yang dipakai nginx buat serve web (biasanya auto-inject dari panel Pterodactyl/Pelican). Nginx+php-fpm nyala otomatis setiap container start, gak perlu env tambahan buat aktifin | `8080` |
 
 ## Testing PHP Web App (nginx + php-fpm)
 
@@ -45,7 +44,6 @@ project Laravel/CodeIgniter) di situ.
 docker build -t sairi-php .
 
 docker run -it \
-  -e ENABLE_PHP_WEB=true \
   -e SERVER_PORT=8080 \
   -p 8080:8080 \
   sairi-php
@@ -58,9 +56,9 @@ Ganti/isi `/home/container/public` dengan project PHP lo (Laravel: arahkan
 
 ### Di Pterodactyl/Pelican
 
-Set env `ENABLE_PHP_WEB=true` di startup variables egg, `SERVER_PORT` biasanya
-udah otomatis di-inject panel — nginx bakal ikut listen di port yang di-allocate
-ke server tersebut.
+Nginx + php-fpm langsung nyala otomatis pas container start, gak perlu setting
+apa-apa. `SERVER_PORT` biasanya udah otomatis di-inject panel — nginx bakal
+ikut listen di port yang di-allocate ke server tersebut.
 
 > Catatan: setup ini belum pernah di-build & di-run beneran (sandbox testing
 > ini gak ada akses Docker daemon) — cek dulu log `/home/container/logs/`

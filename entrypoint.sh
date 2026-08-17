@@ -29,25 +29,23 @@ if [ ! -z "${NODE_VERSION}" ]; then
     fi
 fi
 
-# --- Nginx + PHP-FPM (opsional, aktif kalau ENABLE_PHP_WEB=true) ---
-if [[ "${ENABLE_PHP_WEB}" == "true" ]] || [[ "${ENABLE_PHP_WEB}" == "1" ]]; then
-    PORT="${SERVER_PORT:-8080}"
+# --- Nginx + PHP-FPM (selalu aktif otomatis, gak perlu set env) ---
+PORT="${SERVER_PORT:-8080}"
 
-    # generate nginx.conf dari template (isi port sesuai env panel)
-    sed "s/\${SERVER_PORT_PLACEHOLDER}/${PORT}/" /etc/nginx/nginx.conf.template > /home/container/run/nginx.conf
+# generate nginx.conf dari template (isi port sesuai env panel)
+sed "s/\${SERVER_PORT_PLACEHOLDER}/${PORT}/" /etc/nginx/nginx.conf.template > /home/container/run/nginx.conf
 
-    # start php-fpm (foreground process, di-background-kan)
-    php-fpm8.3 -y /etc/php/8.3/fpm/php-fpm.conf --nodaemonize \
-        > /home/container/logs/php-fpm.log 2>&1 &
+# start php-fpm (foreground process, di-background-kan)
+php-fpm8.3 -y /etc/php/8.3/fpm/php-fpm.conf --nodaemonize \
+    > /home/container/logs/php-fpm.log 2>&1 &
 
-    sleep 1
+sleep 1
 
-    # start nginx pake config custom
-    nginx -c /home/container/run/nginx.conf -g "daemon off;" \
-        > /home/container/logs/nginx.log 2>&1 &
+# start nginx pake config custom
+nginx -c /home/container/run/nginx.conf -g "daemon off;" \
+    > /home/container/logs/nginx.log 2>&1 &
 
-    echo -e "\033[1;32mPHP web server aktif di port ${PORT}\033[0m (nginx + php-fpm)"
-fi
+echo -e "\033[1;32mPHP web server aktif di port ${PORT}\033[0m (nginx + php-fpm)"
 
 if [[ "${ENABLE_CF_TUNNEL}" == "true" ]] || [[ "${ENABLE_CF_TUNNEL}" == "1" ]]; then
     if [ ! -z "${CF_TOKEN}" ]; then
