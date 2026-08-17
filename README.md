@@ -25,24 +25,47 @@ Docker image serbaguna berbasis `debian:bullseye-slim` yang sudah dilengkapi ban
 | `NODE_VERSION` | Versi Node.js yang ingin diinstall/diaktifkan saat container start | `20`, `v20.11.0` |
 | `ENABLE_CF_TUNNEL` | Set `true`/`1` untuk mengaktifkan Cloudflare Tunnel otomatis | `true` |
 | `CF_TOKEN` | Token tunnel Cloudflare (wajib jika `ENABLE_CF_TUNNEL` aktif) | `xxxxxxxx` |
-| `ENABLE_PHP_WEB` | Set `true`/`1` untuk mengaktifkan Nginx + PHP-FPM (dikelola Supervisor) | `true` |
-| `SERVER_PORT` | Port yang dipakai Nginx untuk serve PHP web app (biasanya otomatis diisi Pterodactyl) | `8080` |
-| `WEB_ROOT` | Folder root aplikasi PHP (document root Nginx) | `/home/container/public` |
+| `ENABLE_PHP_WEB` | Set `true`/`1` untuk menyalakan nginx + php-fpm otomatis saat start | `true` |
+| `SERVER_PORT` | Port yang dipakai nginx buat serve web (biasanya auto-inject dari panel Pterodactyl/Pelican) | `8080` |
 
-## PHP-FPM + Nginx
+## Testing PHP Web App (nginx + php-fpm)
 
-Image ini sudah menyertakan **Nginx** dan **PHP-FPM**, dijalankan bersamaan lewat **Supervisor** (bukan `php -S` built-in server), supaya lebih cocok untuk beban production dan tetap kompatibel dengan model satu-proses-utama ala Pterodactyl.
+Image ini sekarang include `php8.3-fpm` dan `nginx`, dikonfigurasi supaya bisa
+jalan **tanpa root** (soalnya container jalan sebagai user `container`, bukan
+root) — nginx listen di port non-privileged, php-fpm komunikasi lewat unix
+socket, log & pid disimpan di `/home/container/logs` dan `/home/container/run`
+yang writable.
 
-Cara pakai:
-1. Set env `ENABLE_PHP_WEB=true` di panel Pterodactyl (Startup Variables).
-2. (Opsional) set `WEB_ROOT` kalau document root aplikasi kamu bukan `/home/container/public` (mis. Laravel: `/home/container/public` sudah pas karena itu nama folder public bawaan Laravel; framework lain sesuaikan).
-3. `SERVER_PORT` biasanya sudah otomatis di-inject Pterodactyl sesuai alokasi port allocation kamu — nggak perlu diisi manual.
-4. Jalankan container seperti biasa. Entrypoint akan otomatis generate config Nginx dari template, lalu start `supervisord` di background yang menjaga Nginx + PHP-FPM tetap hidup (auto-restart kalau crash).
-5. Banner start-up akan menampilkan status `PHP-Web (Nginx+FPM): Aktif` beserta port & root yang dipakai.
+Docroot web app ada di `/home/container/public` — taruh `index.php` (atau
+project Laravel/CodeIgniter) di situ.
 
-Log tersedia di `/home/container/logs/` (nginx-access.log, nginx-error.log, php-fpm-error.log, supervisord.log, dll) — gampang dicek langsung dari file manager Pterodactyl karena semua di dalam `/home/container`.
+### Jalanin buat testing lokal
 
-**Catatan:** semua proses (Nginx + PHP-FPM + Supervisor) jalan sebagai user non-root `container`, sesuai model keamanan container Pterodactyl — nggak butuh privileged mode atau root.
+```bash
+docker build -t sairi-php .
+
+docker run -it \
+  -e ENABLE_PHP_WEB=true \
+  -e SERVER_PORT=8080 \
+  -p 8080:8080 \
+  sairi-php
+```
+
+Lalu buka `http://localhost:8080` — defaultnya bakal muncul halaman
+`phpinfo()` (file contoh `index.php` udah dibuat otomatis pas build).
+Ganti/isi `/home/container/public` dengan project PHP lo (Laravel: arahkan
+`root` di `docker/nginx.conf.template` ke folder `public/` Laravel-nya).
+
+### Di Pterodactyl/Pelican
+
+Set env `ENABLE_PHP_WEB=true` di startup variables egg, `SERVER_PORT` biasanya
+udah otomatis di-inject panel — nginx bakal ikut listen di port yang di-allocate
+ke server tersebut.
+
+> Catatan: setup ini belum pernah di-build & di-run beneran (sandbox testing
+> ini gak ada akses Docker daemon) — cek dulu log `/home/container/logs/`
+> kalau ada yang error pas testing pertama kali, terutama permission socket
+> php-fpm & path nginx.
 
 ## Cara Pakai
 

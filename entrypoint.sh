@@ -29,31 +29,31 @@ if [ ! -z "${NODE_VERSION}" ]; then
     fi
 fi
 
+# --- Nginx + PHP-FPM (opsional, aktif kalau ENABLE_PHP_WEB=true) ---
+if [[ "${ENABLE_PHP_WEB}" == "true" ]] || [[ "${ENABLE_PHP_WEB}" == "1" ]]; then
+    PORT="${SERVER_PORT:-8080}"
+
+    # generate nginx.conf dari template (isi port sesuai env panel)
+    sed "s/\${SERVER_PORT_PLACEHOLDER}/${PORT}/" /etc/nginx/nginx.conf.template > /home/container/run/nginx.conf
+
+    # start php-fpm (foreground process, di-background-kan)
+    php-fpm8.3 -y /etc/php/8.3/fpm/php-fpm.conf --nodaemonize \
+        > /home/container/logs/php-fpm.log 2>&1 &
+
+    sleep 1
+
+    # start nginx pake config custom
+    nginx -c /home/container/run/nginx.conf -g "daemon off;" \
+        > /home/container/logs/nginx.log 2>&1 &
+
+    echo -e "\033[1;32mPHP web server aktif di port ${PORT}\033[0m (nginx + php-fpm)"
+fi
+
 if [[ "${ENABLE_CF_TUNNEL}" == "true" ]] || [[ "${ENABLE_CF_TUNNEL}" == "1" ]]; then
     if [ ! -z "${CF_TOKEN}" ]; then
         pkill -f cloudflared 2>/dev/null
         nohup cloudflared tunnel run --token ${CF_TOKEN} > /home/container/.cloudflared.log 2>&1 &
     fi
-fi
-
-# --- PHP-FPM + Nginx (via Supervisor) ---
-# Aktifkan dengan env ENABLE_PHP_WEB=true (atau 1)
-# WEB_ROOT bisa diarahkan ke folder public app kamu, default /home/container/public
-PHP_WEB_PORT="${SERVER_PORT:-80}"
-WEB_ROOT="${WEB_ROOT:-/home/container/public}"
-
-if [[ "${ENABLE_PHP_WEB}" == "true" ]] || [[ "${ENABLE_PHP_WEB}" == "1" ]]; then
-    mkdir -p "$WEB_ROOT" /home/container/logs /home/container/run
-
-    sed -e "s#__SERVER_PORT__#${PHP_WEB_PORT}#g" \
-        -e "s#__WEB_ROOT__#${WEB_ROOT}#g" \
-        /etc/nginx/sites-available/php.conf.template > /etc/nginx/sites-enabled/php.conf
-
-    pkill -f supervisord 2>/dev/null
-    nohup supervisord -c /etc/supervisor/supervisord.conf > /home/container/logs/supervisord-boot.log 2>&1 &
-
-    sleep 1
-    echo -e "\033[1;32m[PHP-WEB]\033[0m Nginx + PHP-FPM aktif di port ${PHP_WEB_PORT}, root: ${WEB_ROOT}"
 fi
 
 # --- Warna ANSI ---
@@ -91,21 +91,12 @@ DISK_USED=$(df -h / | awk 'NR==2 {print $3}')
 DISK_TOTAL=$(df -h / | awk 'NR==2 {print $2}')
 DISK_PERCENT=$(df -h / | awk 'NR==2 {print $5}' | tr -d '%')
 
-# --- IP Address (dengan opsi tampil/sembunyi) ---
-PUBLIC_IP=$(curl -s ipinfo.io/ip 2>/dev/null || echo "Unknown")
-if [[ "${SHOW_IP}" == "true" ]] || [[ "${SHOW_IP}" == "1" ]]; then
-    IP_DISPLAY="$PUBLIC_IP"
-else
-    IP_DISPLAY=$(echo -n "$PUBLIC_IP" | sed 's/./•/g')
-fi
-
 clear
 echo -e "${GREEN}${BOLD}"
 figlet -f standard SAIRI 2>/dev/null || echo "SAIRI"
 echo -e "${RESET}"
 echo -e "$LINE"
 echo -e "${CYAN}Location${RESET}   : $(curl -s ipinfo.io/country 2>/dev/null || echo 'Unknown')"
-echo -e "${CYAN}IP Address${RESET} : ${IP_DISPLAY}"
 echo -e "${CYAN}OS${RESET}         : $(grep -oP '(?<=^PRETTY_NAME=).+' /etc/os-release | tr -d '\"')"
 echo -e "${CYAN}CPU${RESET}        : $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^ //') ($(( $(grep -c ^processor /proc/cpuinfo) )) Cores)"
 echo -e "${CYAN}Uptime${RESET}     : $(uptime -p | sed 's/up //')"
@@ -118,16 +109,16 @@ echo -e "${BLUE}Golang${RESET}       : v$(go version 2>/dev/null | awk '{print $
 echo -e "${BLUE}Python${RESET}       : v$(python3 --version 2>/dev/null | awk '{print $2}' || echo -e "${GRAY}Not Installed${RESET}")"
 echo -e "${BLUE}Playwright${RESET}   : $(playwright --version 2>/dev/null | head -n 1 || echo -e "${GRAY}Not Installed${RESET}")"
 echo -e "${BLUE}PHP${RESET}          : $(php -v 2>/dev/null | head -n1 | awk '{print $2}' || echo -e "${GRAY}Not Installed${RESET}")"
+if pgrep -f php-fpm8.3 > /dev/null 2>&1; then
+    echo -e "${BLUE}PHP-FPM${RESET}      : ${GREEN}running${RESET} (socket: /home/container/run/php-fpm.sock)"
+fi
+if pgrep -x nginx > /dev/null 2>&1; then
+    echo -e "${BLUE}Nginx${RESET}        : ${GREEN}running${RESET} (port: ${SERVER_PORT:-8080})"
+fi
 echo -e "${BLUE}Java${RESET}         : $(java -version 2>&1 | head -n1 | awk -F'"' '{print $2}' || echo -e "${GRAY}Not Installed${RESET}")"
 echo -e "$LINE"
 echo -e "${MAGENTA}MySQL Client${RESET} : $(mysql --version 2>/dev/null | awk '{print $5}' | tr -d ',' || echo -e "${GRAY}Not Installed${RESET}")"
 echo -e "$LINE"
-if pgrep -f supervisord >/dev/null 2>&1; then
-    echo -e "${GREEN}PHP-Web (Nginx+FPM)${RESET} : ${GREEN}Aktif${RESET} — port ${PHP_WEB_PORT}, root ${WEB_ROOT}"
-else
-    echo -e "${GRAY}PHP-Web (Nginx+FPM)${RESET} : Nonaktif (set ENABLE_PHP_WEB=true untuk aktifkan)"
-fi
-echo -e "$LINE"
 echo -e "${PINK}${BOLD}Silahkan masukan perintah.${RESET}"
 
-exec /bin/bash
+exec "$@"
