@@ -3,7 +3,7 @@
 Docker image serbaguna berbasis `debian:bullseye-slim` yang sudah dilengkapi banyak runtime dan tools populer, siap pakai untuk development, automation, atau environment container (mis. panel hosting berbasis container seperti Pterodactyl/Pelican).
 
 ## Fitur / Yang Terpasang
- 
+
 - **Bahasa & Runtime**
   - Node.js (versi dapat diatur lewat env `NODE_VERSION`, terinstall otomatis saat container start)
   - Bun
@@ -25,45 +25,6 @@ Docker image serbaguna berbasis `debian:bullseye-slim` yang sudah dilengkapi ban
 | `NODE_VERSION` | Versi Node.js yang ingin diinstall/diaktifkan saat container start | `20`, `v20.11.0` |
 | `ENABLE_CF_TUNNEL` | Set `true`/`1` untuk mengaktifkan Cloudflare Tunnel otomatis | `true` |
 | `CF_TOKEN` | Token tunnel Cloudflare (wajib jika `ENABLE_CF_TUNNEL` aktif) | `xxxxxxxx` |
-| `SERVER_PORT` | Port yang dipakai nginx buat serve web (biasanya auto-inject dari panel Pterodactyl/Pelican). Nginx+php-fpm nyala otomatis setiap container start, gak perlu env tambahan buat aktifin | `8080` |
-
-## Testing PHP Web App (nginx + php-fpm)
-
-Image ini sekarang include `php8.3-fpm` dan `nginx`, dikonfigurasi supaya bisa
-jalan **tanpa root** (soalnya container jalan sebagai user `container`, bukan
-root) — nginx listen di port non-privileged, php-fpm komunikasi lewat unix
-socket, log & pid disimpan di `/home/container/logs` dan `/home/container/run`
-yang writable.
-
-Docroot web app ada di `/home/container/public` — taruh `index.php` (atau
-project Laravel/CodeIgniter) di situ.
-
-### Jalanin buat testing lokal
-
-```bash
-docker build -t sairi-php .
-
-docker run -it \
-  -e SERVER_PORT=8080 \
-  -p 8080:8080 \
-  sairi-php
-```
-
-Lalu buka `http://localhost:8080` — defaultnya bakal muncul halaman
-`phpinfo()` (file contoh `index.php` udah dibuat otomatis pas build).
-Ganti/isi `/home/container/public` dengan project PHP lo (Laravel: arahkan
-`root` di `docker/nginx.conf.template` ke folder `public/` Laravel-nya).
-
-### Di Pterodactyl/Pelican
-
-Nginx + php-fpm langsung nyala otomatis pas container start, gak perlu setting
-apa-apa. `SERVER_PORT` biasanya udah otomatis di-inject panel — nginx bakal
-ikut listen di port yang di-allocate ke server tersebut.
-
-> Catatan: setup ini belum pernah di-build & di-run beneran (sandbox testing
-> ini gak ada akses Docker daemon) — cek dulu log `/home/container/logs/`
-> kalau ada yang error pas testing pertama kali, terutama permission socket
-> php-fpm & path nginx.
 
 ## Cara Pakai
 
@@ -107,4 +68,4 @@ Proyek ini dilisensikan di bawah [MIT License](LICENSE).
 ## Author
 
 **SairiDev**
-Email: sairidev@gmail.com 
+Email: sairidev@gmail.com

@@ -35,17 +35,12 @@ RUN curl -fsSL https://packages.sury.org/php/apt.gpg | gpg --dearmor > /usr/shar
     && apt-get update \
     && apt-get install -y --no-install-recommends \
         php${PHP_VERSION} php${PHP_VERSION}-cli php${PHP_VERSION}-common \
-        php${PHP_VERSION}-fpm \
         php${PHP_VERSION}-mysql php${PHP_VERSION}-pgsql php${PHP_VERSION}-sqlite3 \
         php${PHP_VERSION}-curl php${PHP_VERSION}-mbstring php${PHP_VERSION}-xml \
         php${PHP_VERSION}-zip php${PHP_VERSION}-gd php${PHP_VERSION}-bcmath \
         php${PHP_VERSION}-intl php${PHP_VERSION}-opcache \
     && ln -sf /usr/bin/php${PHP_VERSION} /usr/bin/php \
     && curl -fsSL https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-
-# --- Nginx ---
-RUN apt-get update && apt-get install -y --no-install-recommends nginx \
-    && rm -rf /var/lib/apt/lists/*
 
 # --- Java (Eclipse Temurin / Adoptium, distribusi OpenJDK resmi) ---
 RUN mkdir -p --mode=0755 /usr/share/keyrings \
@@ -55,7 +50,7 @@ RUN mkdir -p --mode=0755 /usr/share/keyrings \
     && apt-get install -y --no-install-recommends temurin-${JAVA_VERSION}-jdk \
     && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get install -y --no-install-recommends \
         fonts-liberation fonts-noto-color-emoji libfontconfig1 libfreetype6 \
         libasound2 libgbm1 libgtk-3-0 libnss3 libnspr4 libatk1.0-0 \
         libatk-bridge2.0-0 libcups2 libdrm2 libdbus-1-3 libexpat1 \
@@ -82,7 +77,7 @@ RUN cd /tmp && wget https://github.com/oven-sh/bun/releases/latest/download/bun-
 RUN mkdir -p $PLAYWRIGHT_BROWSERS_PATH \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
-    && npm install -g playwright@1.47.0 \
+    && npm install -g playwright \
     && npx playwright install --with-deps \
     && apt-get purge -y nodejs && apt-get autoremove -y \
     && chmod -R 777 $PLAYWRIGHT_BROWSERS_PATH
@@ -90,16 +85,8 @@ RUN mkdir -p $PLAYWRIGHT_BROWSERS_PATH \
 RUN useradd -m -d /home/container container
 RUN mkdir -p $NODE_INSTALL_DIR && chown -R container:container $NODE_INSTALL_DIR
 
-# --- Setup nginx + php-fpm biar bisa jalan tanpa root (non-privileged) ---
-COPY ./docker/www.conf /etc/php/${PHP_VERSION}/fpm/pool.d/www.conf
-COPY ./docker/nginx.conf.template /etc/nginx/nginx.conf.template
-RUN mkdir -p /home/container/public /home/container/logs /home/container/run \
-    && echo "<?php phpinfo(); ?>" > /home/container/public/index.php \
-    && chown -R container:container /home/container /var/lib/nginx /var/log/nginx \
-    && chmod -R u+rwX /var/lib/nginx
-
 USER container
 WORKDIR /home/container
 
 COPY ./entrypoint.sh /entrypoint.sh
-ENTRYPOINT [ "/bin/bash", "/entrypoint.sh" ]
+CMD [ "/bin/bash", "/entrypoint.sh" ]

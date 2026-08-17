@@ -29,24 +29,6 @@ if [ ! -z "${NODE_VERSION}" ]; then
     fi
 fi
 
-# --- Nginx + PHP-FPM (selalu aktif otomatis, gak perlu set env) ---
-PORT="${SERVER_PORT:-8080}"
-
-# generate nginx.conf dari template (isi port sesuai env panel)
-sed "s/\${SERVER_PORT_PLACEHOLDER}/${PORT}/" /etc/nginx/nginx.conf.template > /home/container/run/nginx.conf
-
-# start php-fpm (foreground process, di-background-kan)
-php-fpm8.3 -y /etc/php/8.3/fpm/php-fpm.conf --nodaemonize \
-    > /home/container/logs/php-fpm.log 2>&1 &
-
-sleep 1
-
-# start nginx pake config custom
-nginx -c /home/container/run/nginx.conf -g "daemon off;" \
-    > /home/container/logs/nginx.log 2>&1 &
-
-echo -e "\033[1;32mPHP web server aktif di port ${PORT}\033[0m (nginx + php-fpm)"
-
 if [[ "${ENABLE_CF_TUNNEL}" == "true" ]] || [[ "${ENABLE_CF_TUNNEL}" == "1" ]]; then
     if [ ! -z "${CF_TOKEN}" ]; then
         pkill -f cloudflared 2>/dev/null
@@ -107,16 +89,10 @@ echo -e "${BLUE}Golang${RESET}       : v$(go version 2>/dev/null | awk '{print $
 echo -e "${BLUE}Python${RESET}       : v$(python3 --version 2>/dev/null | awk '{print $2}' || echo -e "${GRAY}Not Installed${RESET}")"
 echo -e "${BLUE}Playwright${RESET}   : $(playwright --version 2>/dev/null | head -n 1 || echo -e "${GRAY}Not Installed${RESET}")"
 echo -e "${BLUE}PHP${RESET}          : $(php -v 2>/dev/null | head -n1 | awk '{print $2}' || echo -e "${GRAY}Not Installed${RESET}")"
-if pgrep -f php-fpm8.3 > /dev/null 2>&1; then
-    echo -e "${BLUE}PHP-FPM${RESET}      : ${GREEN}running${RESET} (socket: /home/container/run/php-fpm.sock)"
-fi
-if pgrep -x nginx > /dev/null 2>&1; then
-    echo -e "${BLUE}Nginx${RESET}        : ${GREEN}running${RESET} (port: ${SERVER_PORT:-8080})"
-fi
 echo -e "${BLUE}Java${RESET}         : $(java -version 2>&1 | head -n1 | awk -F'"' '{print $2}' || echo -e "${GRAY}Not Installed${RESET}")"
 echo -e "$LINE"
 echo -e "${MAGENTA}MySQL Client${RESET} : $(mysql --version 2>/dev/null | awk '{print $5}' | tr -d ',' || echo -e "${GRAY}Not Installed${RESET}")"
 echo -e "$LINE"
 echo -e "${PINK}${BOLD}Silahkan masukan perintah.${RESET}"
 
-exec "$@"
+exec /bin/bash
