@@ -3,7 +3,7 @@
 Docker image serbaguna berbasis `debian:bullseye-slim` yang sudah dilengkapi banyak runtime dan tools populer, siap pakai untuk development, automation, atau environment container (mis. panel hosting berbasis container seperti Pterodactyl/Pelican).
 
 ## Fitur / Yang Terpasang
-
+ 
 - **Bahasa & Runtime**
   - Node.js (versi dapat diatur lewat env `NODE_VERSION`, terinstall otomatis saat container start)
   - Bun
@@ -68,4 +68,4 @@ Proyek ini dilisensikan di bawah [MIT License](LICENSE).
 ## Author
 
 **SairiDev**
-Email: sairidev@gmail.com
+Email: sairidev@gmail.com 

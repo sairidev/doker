@@ -50,7 +50,7 @@ RUN mkdir -p --mode=0755 /usr/share/keyrings \
     && apt-get install -y --no-install-recommends temurin-${JAVA_VERSION}-jdk \
     && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y --no-install-recommends \
         fonts-liberation fonts-noto-color-emoji libfontconfig1 libfreetype6 \
         libasound2 libgbm1 libgtk-3-0 libnss3 libnspr4 libatk1.0-0 \
         libatk-bridge2.0-0 libcups2 libdrm2 libdbus-1-3 libexpat1 \
@@ -77,7 +77,7 @@ RUN cd /tmp && wget https://github.com/oven-sh/bun/releases/latest/download/bun-
 RUN mkdir -p $PLAYWRIGHT_BROWSERS_PATH \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
-    && npm install -g playwright \
+    && npm install -g playwright@1.47.0 \
     && npx playwright install --with-deps \
     && apt-get purge -y nodejs && apt-get autoremove -y \
     && chmod -R 777 $PLAYWRIGHT_BROWSERS_PATH
@@ -89,4 +89,4 @@ USER container
 WORKDIR /home/container
 
 COPY ./entrypoint.sh /entrypoint.sh
-CMD [ "/bin/bash", "/entrypoint.sh" ]
+ENTRYPOINT [ "/bin/bash", "/entrypoint.sh" ]
