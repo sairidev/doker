@@ -25,6 +25,24 @@ Docker image serbaguna berbasis `debian:bullseye-slim` yang sudah dilengkapi ban
 | `NODE_VERSION` | Versi Node.js yang ingin diinstall/diaktifkan saat container start | `20`, `v20.11.0` |
 | `ENABLE_CF_TUNNEL` | Set `true`/`1` untuk mengaktifkan Cloudflare Tunnel otomatis | `true` |
 | `CF_TOKEN` | Token tunnel Cloudflare (wajib jika `ENABLE_CF_TUNNEL` aktif) | `xxxxxxxx` |
+| `ENABLE_PHP_WEB` | Set `true`/`1` untuk mengaktifkan Nginx + PHP-FPM (dikelola Supervisor) | `true` |
+| `SERVER_PORT` | Port yang dipakai Nginx untuk serve PHP web app (biasanya otomatis diisi Pterodactyl) | `8080` |
+| `WEB_ROOT` | Folder root aplikasi PHP (document root Nginx) | `/home/container/public` |
+
+## PHP-FPM + Nginx
+
+Image ini sudah menyertakan **Nginx** dan **PHP-FPM**, dijalankan bersamaan lewat **Supervisor** (bukan `php -S` built-in server), supaya lebih cocok untuk beban production dan tetap kompatibel dengan model satu-proses-utama ala Pterodactyl.
+
+Cara pakai:
+1. Set env `ENABLE_PHP_WEB=true` di panel Pterodactyl (Startup Variables).
+2. (Opsional) set `WEB_ROOT` kalau document root aplikasi kamu bukan `/home/container/public` (mis. Laravel: `/home/container/public` sudah pas karena itu nama folder public bawaan Laravel; framework lain sesuaikan).
+3. `SERVER_PORT` biasanya sudah otomatis di-inject Pterodactyl sesuai alokasi port allocation kamu — nggak perlu diisi manual.
+4. Jalankan container seperti biasa. Entrypoint akan otomatis generate config Nginx dari template, lalu start `supervisord` di background yang menjaga Nginx + PHP-FPM tetap hidup (auto-restart kalau crash).
+5. Banner start-up akan menampilkan status `PHP-Web (Nginx+FPM): Aktif` beserta port & root yang dipakai.
+
+Log tersedia di `/home/container/logs/` (nginx-access.log, nginx-error.log, php-fpm-error.log, supervisord.log, dll) — gampang dicek langsung dari file manager Pterodactyl karena semua di dalam `/home/container`.
+
+**Catatan:** semua proses (Nginx + PHP-FPM + Supervisor) jalan sebagai user non-root `container`, sesuai model keamanan container Pterodactyl — nggak butuh privileged mode atau root.
 
 ## Cara Pakai
 

@@ -36,6 +36,26 @@ if [[ "${ENABLE_CF_TUNNEL}" == "true" ]] || [[ "${ENABLE_CF_TUNNEL}" == "1" ]]; 
     fi
 fi
 
+# --- PHP-FPM + Nginx (via Supervisor) ---
+# Aktifkan dengan env ENABLE_PHP_WEB=true (atau 1)
+# WEB_ROOT bisa diarahkan ke folder public app kamu, default /home/container/public
+PHP_WEB_PORT="${SERVER_PORT:-80}"
+WEB_ROOT="${WEB_ROOT:-/home/container/public}"
+
+if [[ "${ENABLE_PHP_WEB}" == "true" ]] || [[ "${ENABLE_PHP_WEB}" == "1" ]]; then
+    mkdir -p "$WEB_ROOT" /home/container/logs /home/container/run
+
+    sed -e "s#__SERVER_PORT__#${PHP_WEB_PORT}#g" \
+        -e "s#__WEB_ROOT__#${WEB_ROOT}#g" \
+        /etc/nginx/sites-available/php.conf.template > /etc/nginx/sites-enabled/php.conf
+
+    pkill -f supervisord 2>/dev/null
+    nohup supervisord -c /etc/supervisor/supervisord.conf > /home/container/logs/supervisord-boot.log 2>&1 &
+
+    sleep 1
+    echo -e "\033[1;32m[PHP-WEB]\033[0m Nginx + PHP-FPM aktif di port ${PHP_WEB_PORT}, root: ${WEB_ROOT}"
+fi
+
 # --- Warna ANSI ---
 RESET='\033[0m'
 BOLD='\033[1m'
@@ -101,6 +121,12 @@ echo -e "${BLUE}PHP${RESET}          : $(php -v 2>/dev/null | head -n1 | awk '{p
 echo -e "${BLUE}Java${RESET}         : $(java -version 2>&1 | head -n1 | awk -F'"' '{print $2}' || echo -e "${GRAY}Not Installed${RESET}")"
 echo -e "$LINE"
 echo -e "${MAGENTA}MySQL Client${RESET} : $(mysql --version 2>/dev/null | awk '{print $5}' | tr -d ',' || echo -e "${GRAY}Not Installed${RESET}")"
+echo -e "$LINE"
+if pgrep -f supervisord >/dev/null 2>&1; then
+    echo -e "${GREEN}PHP-Web (Nginx+FPM)${RESET} : ${GREEN}Aktif${RESET} — port ${PHP_WEB_PORT}, root ${WEB_ROOT}"
+else
+    echo -e "${GRAY}PHP-Web (Nginx+FPM)${RESET} : Nonaktif (set ENABLE_PHP_WEB=true untuk aktifkan)"
+fi
 echo -e "$LINE"
 echo -e "${PINK}${BOLD}Silahkan masukan perintah.${RESET}"
 

@@ -29,18 +29,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && echo 'deb [signed-by=/usr/share/keyrings/cloudflare-public-v2.gpg] https://pkg.cloudflare.com/cloudflared any main' | tee /etc/apt/sources.list.d/cloudflared.list \
     && apt-get update && apt-get install -y cloudflared
 
-# --- PHP (via Sury/Ondřej repo, mendukung banyak versi PHP) ---
+# --- PHP (via Sury/Ondřej repo, mendukung banyak versi PHP) + PHP-FPM + Nginx + Supervisor ---
 RUN curl -fsSL https://packages.sury.org/php/apt.gpg | gpg --dearmor > /usr/share/keyrings/sury-php.gpg \
     && echo "deb [signed-by=/usr/share/keyrings/sury-php.gpg] https://packages.sury.org/php/ bullseye main" | tee /etc/apt/sources.list.d/sury-php.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
         php${PHP_VERSION} php${PHP_VERSION}-cli php${PHP_VERSION}-common \
+        php${PHP_VERSION}-fpm \
         php${PHP_VERSION}-mysql php${PHP_VERSION}-pgsql php${PHP_VERSION}-sqlite3 \
         php${PHP_VERSION}-curl php${PHP_VERSION}-mbstring php${PHP_VERSION}-xml \
         php${PHP_VERSION}-zip php${PHP_VERSION}-gd php${PHP_VERSION}-bcmath \
         php${PHP_VERSION}-intl php${PHP_VERSION}-opcache \
+        nginx supervisor \
     && ln -sf /usr/bin/php${PHP_VERSION} /usr/bin/php \
-    && curl -fsSL https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+    && ln -sf /usr/sbin/php-fpm${PHP_VERSION} /usr/sbin/php-fpm \
+    && curl -fsSL https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
+    && rm -f /etc/nginx/sites-enabled/default
 
 # --- Java (Eclipse Temurin / Adoptium, distribusi OpenJDK resmi) ---
 RUN mkdir -p --mode=0755 /usr/share/keyrings \
@@ -84,6 +88,21 @@ RUN mkdir -p $PLAYWRIGHT_BROWSERS_PATH \
 
 RUN useradd -m -d /home/container container
 RUN mkdir -p $NODE_INSTALL_DIR && chown -R container:container $NODE_INSTALL_DIR
+
+# --- Config Nginx + PHP-FPM + Supervisor (semuanya jalan sebagai user non-root 'container') ---
+COPY ./docker/nginx.conf /etc/nginx/nginx.conf
+COPY ./docker/nginx-php.conf.template /etc/nginx/sites-available/php.conf.template
+COPY ./docker/www.conf /etc/php/${PHP_VERSION}/fpm/pool.d/www.conf
+COPY ./docker/supervisord.conf /etc/supervisor/supervisord.conf
+
+RUN mkdir -p /etc/nginx/sites-enabled /run/php \
+        /home/container/public /home/container/logs /home/container/run \
+    && echo '<?php phpinfo();' > /home/container/public/index.php \
+    && chown -R container:container \
+        /etc/nginx /var/lib/nginx /var/log/nginx /run/php \
+        /etc/php/${PHP_VERSION}/fpm/pool.d/www.conf \
+        /etc/supervisor/supervisord.conf \
+        /home/container
 
 USER container
 WORKDIR /home/container
