@@ -95,11 +95,11 @@ COPY ./docker/nginx-php.conf.template /etc/nginx/sites-available/php.conf.templa
 COPY ./docker/www.conf /etc/php/${PHP_VERSION}/fpm/pool.d/www.conf
 COPY ./docker/supervisord.conf /etc/supervisor/supervisord.conf
 
-RUN mkdir -p /etc/nginx/sites-enabled /run/php \
+RUN mkdir -p /etc/nginx/sites-enabled \
         /home/container/public /home/container/logs /home/container/run \
     && echo '<?php phpinfo();' > /home/container/public/index.php \
     && chown -R container:container \
-        /etc/nginx /var/lib/nginx /var/log/nginx /run/php \
+        /etc/nginx /var/lib/nginx /var/log/nginx \
         /etc/php/${PHP_VERSION}/fpm/pool.d/www.conf \
         /etc/supervisor/supervisord.conf \
         /home/container
