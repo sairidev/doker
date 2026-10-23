@@ -103,6 +103,56 @@ echo -e "$LINE"
 echo -e "${MAGENTA}MySQL Client${RESET} : $(mysql --version 2>/dev/null | awk '{print $5}' | tr -d ',' || echo -e "${GRAY}Not Installed${RESET}")"
 echo -e "$LINE"
 
+# Pasang ulang paket kalau daftar paketnya berubah ("*" = periksa semua). Gagal -> kode keluar 1.
+pasang_paket() {
+    local BERUBAH="$1"
+    if [ -f package.json ] && { [ "$BERUBAH" = "*" ] || grep -qE '(^|/)package(-lock)?\.json$' <<< "$BERUBAH"; }; then
+        echo -e "${CYAN}[git] Memasang paket npm...${RESET}"
+        npm install --no-audit --no-fund || { echo -e "${YELLOW}[git] npm install gagal.${RESET}"; return 1; }
+    fi
+    if [ -f requirements.txt ] && { [ "$BERUBAH" = "*" ] || grep -qx 'requirements.txt' <<< "$BERUBAH"; }; then
+        echo -e "${CYAN}[git] Memasang paket Python...${RESET}"
+        python3 -m pip install -q -r requirements.txt || { echo -e "${YELLOW}[git] pip install gagal.${RESET}"; return 1; }
+    fi
+    if [ -f composer.json ] && { [ "$BERUBAH" = "*" ] || grep -qE '^composer\.(json|lock)$' <<< "$BERUBAH"; }; then
+        echo -e "${CYAN}[git] Memasang paket Composer...${RESET}"
+        composer install --no-interaction || { echo -e "${YELLOW}[git] composer install gagal.${RESET}"; return 1; }
+    fi
+    return 0
+}
+
+# --- Repo GitHub dari panel (GITHUB_TOKEN_URL) ---
+# Diisi panel saat repo dihubungkan lewat widget GitHub. Git mengambil token baca (berlaku 1 jam, hanya untuk
+# repo itu) dari panel setiap butuh, jadi repo private jalan tanpa menyimpan token di server.
+PEMICU_DEPLOY=/home/container/.sairi-deploy
+if [ -n "${GITHUB_TOKEN_URL}" ] && [ -n "${GIT_ADDRESS}" ]; then
+    cd /home/container
+    export GIT_TERMINAL_PROMPT=0
+    git config --global --unset-all credential.https://github.com.helper 2>/dev/null
+    git config --global credential.https://github.com.helper '!f() { test "$1" = get || exit 0; echo username=x-access-token; echo "password=$(curl -fsS --max-time 15 "$GITHUB_TOKEN_URL")"; }; f'
+    CABANG_GH="${BRANCH:-main}"
+    PERLU_AMBIL=0
+    if [ ! -d .git ]; then
+        git init -q && git remote add origin "${GIT_ADDRESS}"
+        PERLU_AMBIL=1
+    elif [ "$(git config --get remote.origin.url)" != "${GIT_ADDRESS}" ]; then
+        git remote set-url origin "${GIT_ADDRESS}" 2>/dev/null || git remote add origin "${GIT_ADDRESS}"
+        PERLU_AMBIL=1
+    elif ! git rev-parse -q --verify HEAD >/dev/null || [ "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" != "$CABANG_GH" ]; then
+        PERLU_AMBIL=1
+    fi
+    grep -qx '.sairi-deploy' .git/info/exclude 2>/dev/null || echo '.sairi-deploy' >> .git/info/exclude
+    if [ "$PERLU_AMBIL" = 1 ]; then
+        echo -e "${CYAN}[git] Mengambil ${GIT_ADDRESS} (${CABANG_GH})...${RESET}"
+        if git fetch -q origin "$CABANG_GH" && git checkout -q -f -B "$CABANG_GH" FETCH_HEAD; then
+            echo -e "${GREEN}[git] Repo siap: $(git log -1 --format='%h %s')${RESET}"
+            pasang_paket "*"
+        else
+            echo -e "${YELLOW}[git] Repo gagal diambil. Periksa koneksi GitHub di widget Startup.${RESET}"
+        fi
+    fi
+fi
+
 # --- Update otomatis dari Git (AUTO_UPDATE) ---
 # Tiap UPDATE_INTERVAL detik cek commit baru di repo; kalau ada: git pull (hanya maju), pasang ulang paket kalau
 # daftar paketnya berubah, lalu muat ulang program AUTO_CMD saja (container & console tidak restart).
@@ -123,7 +173,16 @@ update_otomatis() {
     local JEDA="${UPDATE_INTERVAL:-60}" DIPERINGATKAN="" LAMA BARU CABANG BERUBAH PID
     [[ "$JEDA" =~ ^[0-9]+$ ]] && [ "$JEDA" -ge 10 ] || JEDA=60
     echo -e "${CYAN}Update otomatis dari Git aktif, cek tiap ${JEDA} detik.${RESET}"
-    while sleep "$JEDA"; do
+    # tunggu JEDA detik, atau langsung jalan kalau panel menaruh file pemicu (push dari webhook GitHub)
+    tunggu_update() {
+        local i=0
+        while [ "$i" -lt "$JEDA" ]; do
+            [ -f "$PEMICU_DEPLOY" ] && { rm -f "$PEMICU_DEPLOY"; return 0; }
+            sleep 2
+            i=$((i + 2))
+        done
+    }
+    while tunggu_update; do
         CABANG="${BRANCH:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null)}"
         [ -n "$CABANG" ] && [ "$CABANG" != "HEAD" ] || continue
         git fetch --quiet origin "$CABANG" 2>/dev/null || continue
@@ -141,19 +200,7 @@ update_otomatis() {
         fi
         DIPERINGATKAN=""
         echo -e "${GREEN}${BOLD}[update]${RESET} ${LAMA:0:7} -> ${BARU:0:7}: $(git log -1 --format=%s "$BARU" 2>/dev/null)"
-        BERUBAH=$(git diff --name-only "$LAMA" "$BARU" 2>/dev/null)
-        if [ -f package.json ] && grep -qE '(^|/)package(-lock)?\.json$' <<< "$BERUBAH"; then
-            echo -e "${CYAN}[update] Memasang paket npm...${RESET}"
-            npm install --no-audit --no-fund || { echo -e "${YELLOW}[update] npm install gagal, program tidak dimuat ulang.${RESET}"; continue; }
-        fi
-        if [ -f requirements.txt ] && grep -qx 'requirements.txt' <<< "$BERUBAH"; then
-            echo -e "${CYAN}[update] Memasang paket Python...${RESET}"
-            python3 -m pip install -q -r requirements.txt || { echo -e "${YELLOW}[update] pip install gagal, program tidak dimuat ulang.${RESET}"; continue; }
-        fi
-        if [ -f composer.json ] && grep -qE '^composer\.(json|lock)$' <<< "$BERUBAH"; then
-            echo -e "${CYAN}[update] Memasang paket Composer...${RESET}"
-            composer install --no-interaction || { echo -e "${YELLOW}[update] composer install gagal, program tidak dimuat ulang.${RESET}"; continue; }
-        fi
+        pasang_paket "$(git diff --name-only "$LAMA" "$BARU" 2>/dev/null)" || { echo -e "${YELLOW}[update] Program tidak dimuat ulang.${RESET}"; continue; }
         if [ -z "${AUTO_CMD}" ]; then
             echo -e "${CYAN}[update] Selesai. Jalankan ulang programmu sendiri kalau perlu.${RESET}"
         elif [[ "${AUTO_CMD}" == *pm2* ]]; then
