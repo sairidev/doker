@@ -27,6 +27,8 @@ Docker image serbaguna berbasis `debian:bullseye-slim` yang sudah dilengkapi ban
 | `CF_TOKEN` | Token tunnel Cloudflare (wajib jika `ENABLE_CF_TUNNEL` aktif) | `xxxxxxxx` |
 | `AUTO_CMD` | Perintah yang dijalankan otomatis setiap container start/restart (dari `/home/container`), jadi tidak perlu diketik ulang. Kosong = langsung masuk bash seperti biasa. Tombol Stop panel diteruskan ke perintah ini. | `node server.js`, `npm start` |
 | `AUTO_RESTART` | `1`/`true`: kalau `AUTO_CMD` berhenti/crash, dijalankan lagi setelah 3 detik (berhenti mengulang kalau gagal 5x berturut-turut dalam 10 detik). Selain itu, console kembali ke bash. | `1` |
+| `AUTO_UPDATE` | `1`/`true`: selama server jalan, repo Git di `/home/container` dicek berkala. Ada commit baru: `git pull` (hanya maju, file yang diubah manual tidak ditimpa), `npm install` / `pip install` / `composer install` kalau daftar paketnya berubah, lalu hanya program `AUTO_CMD` yang dimuat ulang (jeda 1-3 detik; kalau `AUTO_CMD` memakai pm2: `pm2 reload all` tanpa jeda). Container tidak restart. | `1` |
+| `UPDATE_INTERVAL` | Jeda cek update dalam detik (minimal 10). | `60` |
 
 ## Cara Pakai
 

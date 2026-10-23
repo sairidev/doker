@@ -103,6 +103,80 @@ echo -e "$LINE"
 echo -e "${MAGENTA}MySQL Client${RESET} : $(mysql --version 2>/dev/null | awk '{print $5}' | tr -d ',' || echo -e "${GRAY}Not Installed${RESET}")"
 echo -e "$LINE"
 
+# --- Update otomatis dari Git (AUTO_UPDATE) ---
+# Tiap UPDATE_INTERVAL detik cek commit baru di repo; kalau ada: git pull (hanya maju), pasang ulang paket kalau
+# daftar paketnya berubah, lalu muat ulang program AUTO_CMD saja (container & console tidak restart).
+# AUTO_CMD memakai pm2 -> "pm2 reload all" (tanpa jeda); selain itu programnya dijalankan ulang (jeda 1-3 detik).
+PID_PERINTAH=/tmp/.auto-cmd.pid
+TANDA_UPDATE=/tmp/.auto-update
+rm -f "$PID_PERINTAH" "$TANDA_UPDATE"
+
+matikan_pohon() {
+    local p
+    for p in $(pgrep -P "$1" 2>/dev/null); do matikan_pohon "$p"; done
+    kill -TERM "$1" 2>/dev/null
+}
+
+update_otomatis() {
+    cd /home/container || return
+    export GIT_TERMINAL_PROMPT=0
+    local JEDA="${UPDATE_INTERVAL:-60}" DIPERINGATKAN="" LAMA BARU CABANG BERUBAH PID
+    [[ "$JEDA" =~ ^[0-9]+$ ]] && [ "$JEDA" -ge 10 ] || JEDA=60
+    echo -e "${CYAN}Update otomatis dari Git aktif, cek tiap ${JEDA} detik.${RESET}"
+    while sleep "$JEDA"; do
+        CABANG="${BRANCH:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null)}"
+        [ -n "$CABANG" ] && [ "$CABANG" != "HEAD" ] || continue
+        git fetch --quiet origin "$CABANG" 2>/dev/null || continue
+        LAMA=$(git rev-parse HEAD 2>/dev/null)
+        BARU=$(git rev-parse FETCH_HEAD 2>/dev/null)
+        [ -n "$BARU" ] && [ "$LAMA" != "$BARU" ] || continue
+        # repo di server lebih baru dari GitHub (commit lokal): tidak ada yang perlu diambil
+        git merge-base --is-ancestor "$BARU" "$LAMA" 2>/dev/null && continue
+        if ! git merge-base --is-ancestor "$LAMA" "$BARU" 2>/dev/null || ! git merge --ff-only --quiet "$BARU" 2>/dev/null; then
+            if [ "$DIPERINGATKAN" != "$BARU" ]; then
+                echo -e "${YELLOW}[update] Ada versi baru ($(git log -1 --format=%s "$BARU" 2>/dev/null)), tapi file di server diubah manual / beda dengan repo. Update dilewati supaya tidak menimpa.${RESET}"
+                DIPERINGATKAN="$BARU"
+            fi
+            continue
+        fi
+        DIPERINGATKAN=""
+        echo -e "${GREEN}${BOLD}[update]${RESET} ${LAMA:0:7} -> ${BARU:0:7}: $(git log -1 --format=%s "$BARU" 2>/dev/null)"
+        BERUBAH=$(git diff --name-only "$LAMA" "$BARU" 2>/dev/null)
+        if [ -f package.json ] && grep -qE '(^|/)package(-lock)?\.json$' <<< "$BERUBAH"; then
+            echo -e "${CYAN}[update] Memasang paket npm...${RESET}"
+            npm install --no-audit --no-fund || { echo -e "${YELLOW}[update] npm install gagal, program tidak dimuat ulang.${RESET}"; continue; }
+        fi
+        if [ -f requirements.txt ] && grep -qx 'requirements.txt' <<< "$BERUBAH"; then
+            echo -e "${CYAN}[update] Memasang paket Python...${RESET}"
+            python3 -m pip install -q -r requirements.txt || { echo -e "${YELLOW}[update] pip install gagal, program tidak dimuat ulang.${RESET}"; continue; }
+        fi
+        if [ -f composer.json ] && grep -qE '^composer\.(json|lock)$' <<< "$BERUBAH"; then
+            echo -e "${CYAN}[update] Memasang paket Composer...${RESET}"
+            composer install --no-interaction || { echo -e "${YELLOW}[update] composer install gagal, program tidak dimuat ulang.${RESET}"; continue; }
+        fi
+        if [ -z "${AUTO_CMD}" ]; then
+            echo -e "${CYAN}[update] Selesai. Jalankan ulang programmu sendiri kalau perlu.${RESET}"
+        elif [[ "${AUTO_CMD}" == *pm2* ]]; then
+            pm2 reload all --update-env >/dev/null && echo -e "${GREEN}[update] Dimuat ulang lewat pm2 tanpa jeda.${RESET}"
+        else
+            PID=$(cat "$PID_PERINTAH" 2>/dev/null)
+            if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
+                echo -e "${CYAN}[update] Memuat ulang program...${RESET}"
+                touch "$TANDA_UPDATE"
+                matikan_pohon "$PID"
+            fi
+        fi
+    done
+}
+
+if [[ "${AUTO_UPDATE}" == "1" || "${AUTO_UPDATE}" == "true" ]]; then
+    if [ -d /home/container/.git ]; then
+        update_otomatis &
+    else
+        echo -e "${YELLOW}Update otomatis aktif, tapi folder server bukan repo Git (isi Git Repo Address lalu Reinstall).${RESET}"
+    fi
+fi
+
 # --- Perintah otomatis (AUTO_CMD) ---
 # Diisi di tab Startup (mis. "node server.js"): dijalankan setiap server start / restart, jadi tidak perlu
 # mengetik ulang. AUTO_RESTART=1: kalau perintahnya berhenti / crash, dijalankan lagi setelah 3 detik.
@@ -128,9 +202,18 @@ if [ -n "${AUTO_CMD}" ]; then
         # stdin console ikut diteruskan (bot yang minta input / nomor pairing tetap bisa diketik)
         bash -c "${AUTO_CMD}" <&0 &
         ANAK=$!
+        echo "$ANAK" > "$PID_PERINTAH"
         wait "$ANAK"
         KODE=$?
         ANAK=""
+        rm -f "$PID_PERINTAH"
+        # dihentikan oleh update otomatis: langsung jalankan versi baru
+        if [ -f "$TANDA_UPDATE" ]; then
+            rm -f "$TANDA_UPDATE"
+            GAGAL_CEPAT=0
+            echo -e "$LINE"
+            continue
+        fi
         echo -e "$LINE"
         echo -e "${YELLOW}Perintah otomatis berhenti (kode ${KODE}).${RESET}"
         if [[ "${AUTO_RESTART}" != "1" && "${AUTO_RESTART}" != "true" ]]; then break; fi
