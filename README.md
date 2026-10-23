@@ -25,6 +25,8 @@ Docker image serbaguna berbasis `debian:bullseye-slim` yang sudah dilengkapi ban
 | `NODE_VERSION` | Versi Node.js yang ingin diinstall/diaktifkan saat container start | `20`, `v20.11.0` |
 | `ENABLE_CF_TUNNEL` | Set `true`/`1` untuk mengaktifkan Cloudflare Tunnel otomatis | `true` |
 | `CF_TOKEN` | Token tunnel Cloudflare (wajib jika `ENABLE_CF_TUNNEL` aktif) | `xxxxxxxx` |
+| `AUTO_CMD` | Perintah yang dijalankan otomatis setiap container start/restart (dari `/home/container`), jadi tidak perlu diketik ulang. Kosong = langsung masuk bash seperti biasa. Tombol Stop panel diteruskan ke perintah ini. | `node server.js`, `npm start` |
+| `AUTO_RESTART` | `1`/`true`: kalau `AUTO_CMD` berhenti/crash, dijalankan lagi setelah 3 detik (berhenti mengulang kalau gagal 5x berturut-turut dalam 10 detik). Selain itu, console kembali ke bash. | `1` |
 
 ## Cara Pakai
 

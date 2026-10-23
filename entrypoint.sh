@@ -102,6 +102,49 @@ echo -e "${BLUE}Java${RESET}         : $(java -version 2>&1 | head -n1 | awk -F'
 echo -e "$LINE"
 echo -e "${MAGENTA}MySQL Client${RESET} : $(mysql --version 2>/dev/null | awk '{print $5}' | tr -d ',' || echo -e "${GRAY}Not Installed${RESET}")"
 echo -e "$LINE"
+
+# --- Perintah otomatis (AUTO_CMD) ---
+# Diisi di tab Startup (mis. "node server.js"): dijalankan setiap server start / restart, jadi tidak perlu
+# mengetik ulang. AUTO_RESTART=1: kalau perintahnya berhenti / crash, dijalankan lagi setelah 3 detik.
+# Tombol Stop (sinyal ke proses utama) diteruskan ke perintah supaya berhenti dengan rapi.
+if [ -n "${AUTO_CMD}" ]; then
+    export NODE_PATH="$NODE_DIR/lib/node_modules"
+    cd /home/container
+    ANAK=""
+    berhenti() {
+        trap - INT TERM
+        echo -e "\n${YELLOW}Menghentikan perintah otomatis...${RESET}"
+        # seluruh proses di grup ini (perintah & anak-anaknya); proses utama sendiri tidak terpengaruh
+        kill -TERM 0 2>/dev/null
+        wait 2>/dev/null
+        exit 0
+    }
+    trap berhenti INT TERM
+    GAGAL_CEPAT=0
+    while true; do
+        echo -e "${GREEN}${BOLD}Menjalankan perintah otomatis:${RESET} ${AUTO_CMD}"
+        echo -e "$LINE"
+        MULAI=$(date +%s)
+        # stdin console ikut diteruskan (bot yang minta input / nomor pairing tetap bisa diketik)
+        bash -c "${AUTO_CMD}" <&0 &
+        ANAK=$!
+        wait "$ANAK"
+        KODE=$?
+        ANAK=""
+        echo -e "$LINE"
+        echo -e "${YELLOW}Perintah otomatis berhenti (kode ${KODE}).${RESET}"
+        if [[ "${AUTO_RESTART}" != "1" && "${AUTO_RESTART}" != "true" ]]; then break; fi
+        if [ $(( $(date +%s) - MULAI )) -lt 10 ]; then GAGAL_CEPAT=$(( GAGAL_CEPAT + 1 )); else GAGAL_CEPAT=0; fi
+        if [ "$GAGAL_CEPAT" -ge 5 ]; then
+            echo -e "${YELLOW}Berhenti 5x berturut-turut dalam 10 detik, jalan ulang otomatis dihentikan. Periksa perintahnya.${RESET}"
+            break
+        fi
+        echo -e "${CYAN}Dijalankan ulang dalam 3 detik...${RESET}"
+        sleep 3
+    done
+    trap - INT TERM
+fi
+
 echo -e "${PINK}${BOLD}Silahkan masukan perintah.${RESET}"
 
 exec /bin/bash
