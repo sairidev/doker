@@ -1,4 +1,4 @@
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 
 LABEL author="SairiDev" maintainer="sairidev@gmail.com"
 
@@ -11,7 +11,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     GO_VERSION=1.24.0 \
     PYTHON_VERSION=3.13.0 \
     PHP_VERSION=8.3 \
-    JAVA_VERSION=21
+    JAVA_VERSION=25
 
 ENV PATH="$NODE_INSTALL_DIR/bin:$BUN_INSTALL/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -20,8 +20,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         jq nano vim sudo ca-certificates gnupg lsb-release figlet \
         net-tools iputils-ping dnsutils procps \
         build-essential make gcc g++ libssl-dev zlib1g-dev \
-        libbz2-dev libreadline-dev libsqlite3-dev \
-        libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev \
+        libbz2-dev libreadline-dev libsqlite3-dev libgdbm-dev uuid-dev \
+        libncurses-dev xz-utils tk-dev libffi-dev liblzma-dev \
         ffmpeg imagemagick graphicsmagick webp mediainfo \
         default-mysql-client \
     && mkdir -p --mode=0755 /usr/share/keyrings \
@@ -31,7 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # --- PHP (via Sury/Ondřej repo, mendukung banyak versi PHP) ---
 RUN curl -fsSL https://packages.sury.org/php/apt.gpg | gpg --dearmor > /usr/share/keyrings/sury-php.gpg \
-    && echo "deb [signed-by=/usr/share/keyrings/sury-php.gpg] https://packages.sury.org/php/ bullseye main" | tee /etc/apt/sources.list.d/sury-php.list \
+    && echo "deb [signed-by=/usr/share/keyrings/sury-php.gpg] https://packages.sury.org/php/ $(. /etc/os-release && echo $VERSION_CODENAME) main" | tee /etc/apt/sources.list.d/sury-php.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
         php${PHP_VERSION} php${PHP_VERSION}-cli php${PHP_VERSION}-common \
@@ -45,7 +45,7 @@ RUN curl -fsSL https://packages.sury.org/php/apt.gpg | gpg --dearmor > /usr/shar
 # --- Java (Eclipse Temurin / Adoptium, distribusi OpenJDK resmi) ---
 RUN mkdir -p --mode=0755 /usr/share/keyrings \
     && curl -fsSL https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor > /usr/share/keyrings/adoptium.gpg \
-    && echo "deb [signed-by=/usr/share/keyrings/adoptium.gpg] https://packages.adoptium.net/artifactory/deb bullseye main" | tee /etc/apt/sources.list.d/adoptium.list \
+    && echo "deb [signed-by=/usr/share/keyrings/adoptium.gpg] https://packages.adoptium.net/artifactory/deb $(. /etc/os-release && echo $VERSION_CODENAME) main" | tee /etc/apt/sources.list.d/adoptium.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends temurin-${JAVA_VERSION}-jdk \
     && rm -rf /var/lib/apt/lists/*

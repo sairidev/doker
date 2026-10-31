@@ -1,6 +1,6 @@
 # SAIRI
 
-Docker image serbaguna berbasis `debian:bullseye-slim` yang sudah dilengkapi banyak runtime dan tools populer, siap pakai untuk development, automation, atau environment container (mis. panel hosting berbasis container seperti Pterodactyl/Pelican).
+Docker image serbaguna berbasis `debian:bookworm-slim` (Debian 12, glibc 2.36) yang sudah dilengkapi banyak runtime dan tools populer, siap pakai untuk development, automation, atau environment container (mis. panel hosting berbasis container seperti Pterodactyl/Pelican).
 
 ## Fitur / Yang Terpasang
  
@@ -10,7 +10,7 @@ Docker image serbaguna berbasis `debian:bullseye-slim` yang sudah dilengkapi ban
   - Go `1.24.0`
   - Python `3.13.0`
   - PHP `8.3` (via repo Sury/Ondřej, mendukung multi-versi PHP)
-  - Java (Eclipse Temurin/Adoptium) `21`
+  - Java (Eclipse Temurin/Adoptium) `25` (LTS)
 - **Package manager**: npm, pnpm, yarn, pm2, Composer
 - **Database client**: `mysql` — hanya client, tidak menjalankan server database di dalam container
 - **Tools umum**: git, curl, wget, zip/unzip, tar, jq, nano, vim, figlet, net-tools, dll
