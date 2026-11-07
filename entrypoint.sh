@@ -29,6 +29,16 @@ if [ ! -z "${NODE_VERSION}" ]; then
     fi
 fi
 
+# Node ada tapi npm/npx hilang: tautan (symlink) di node/bin tidak ikut saat server ditransfer
+# antar node, sedangkan file node-nya ikut. Buat ulang tautannya, lalu tautan paket global lain.
+if [ -x "$NODE_DIR/bin/node" ] && [ ! -e "$NODE_DIR/bin/npm" ] && [ -f "$NODE_DIR/lib/node_modules/npm/bin/npm-cli.js" ]; then
+    echo "[node] npm tidak ditemukan, tautan npm/npx dibuat ulang..."
+    ln -sf ../lib/node_modules/npm/bin/npm-cli.js "$NODE_DIR/bin/npm"
+    ln -sf ../lib/node_modules/npm/bin/npx-cli.js "$NODE_DIR/bin/npx"
+    [ -f "$NODE_DIR/lib/node_modules/corepack/dist/corepack.js" ] && ln -sf ../lib/node_modules/corepack/dist/corepack.js "$NODE_DIR/bin/corepack"
+    "$NODE_DIR/bin/npm" rebuild -g --loglevel=error >/dev/null 2>&1 || true
+fi
+
 if [[ "${ENABLE_CF_TUNNEL}" == "true" ]] || [[ "${ENABLE_CF_TUNNEL}" == "1" ]]; then
     if [ ! -z "${CF_TOKEN}" ]; then
         pkill -f cloudflared 2>/dev/null
